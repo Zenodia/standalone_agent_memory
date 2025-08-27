@@ -19,12 +19,17 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 import uuid
+from openai import OpenAI
+from langchain_core.output_parsers import (
+    JsonOutputParser,
+)
 
+from colorama import Fore
 
 def get_user_id(config: RunnableConfig) -> str:
             user_id = config["configurable"].get("user_id")
             if user_id is None:
-                print("user_id is None, setting memory to generic accessible memory with user_id=general")
+                print(Fore.RED + "user_id is None, setting memory to generic accessible memory with user_id=general", Fore.RESET)
                 user_id = "general"
         
             return user_id
@@ -94,7 +99,7 @@ class MemoryHandler:
         input_variables=["input"],
         template=memory_extract_prompt,
         )
-        self.mem_extract_chain = (extract_prompt_template | self.llm | StrOutputParser())
+        self.mem_extract_chain = (extract_prompt_template | self.llm | JsonOutputParser())
         
         ### create memory routing chain 
         
@@ -133,20 +138,37 @@ class MemoryHandler:
         
         self.choose_memory_tool_chain = (chose_memory_tool_prompt | self.llm | StrOutputParser())
 
-    def memory_routing(self, query:str,config: RunnableConfig ):
+    async def memory_routing(self, query:str,config: RunnableConfig ):
         self.user_id = get_user_id(config)
         self.config=config # memory routing will always be called first, therefore self.config should also be set
         list_of_found_memories = self.search_recall_memories(query=query, config=config)
-        output= self.choose_memory_tool_chain.invoke({"user_id":self.user_id, "input":query, "memory_tools":self.memory_tools, "retrieved_memory":list_of_found_memories})
+        output=""
+        async for event in self.choose_memory_tool_chain.astream_events({"user_id":self.user_id, "input":query, "memory_tools":self.memory_tools, "retrieved_memory":list_of_found_memories}):
+            kind = event["event"]
+            if kind == "on_chat_model_stream":
+                content = event["data"]["chunk"].content
+                if content:
+                    output += content
         return output
     
-    def query_to_memory_items(self, query: str):
-        output= self.mem_extract_chain.invoke({"input":query, "datetime":self.datetime})
-        try:
-            output_d = ast.literal_eval(output)
-        except e:
-            print("error out " , output )
-            output_d = output
+    async def query_to_memory_items(self, query: str):
+        output=""
+        async for event in self.mem_extract_chain.astream_events({"input":query, "datetime":self.datetime}):
+            kind = event["event"]
+            if kind == "on_chat_model_stream":
+                content = event["data"]["chunk"].content
+                if content:
+                    output += content
+                    print(Fore.CYAN + "** query_to_memory_items** streaming output > ", output, Fore.RESET)
+        
+        if isinstance(output,dict):
+            return output
+        else:
+            try:
+                output_d = ast.literal_eval(output)
+            except e:
+                print(Fore.RED + "** query_to_memory_items** > error msg = " , output , Fore.RESET)
+                output_d = output
         return output_d
             
     def save_recall_memory(self,memories: List[str], config: RunnableConfig) -> str:
