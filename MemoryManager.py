@@ -25,6 +25,7 @@ from langchain_core.output_parsers import (
 )
 import re
 from colorama import Fore
+from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
 
 def get_user_id(config: RunnableConfig) -> str:
     user_id = config["configurable"].get("user_id")
@@ -149,6 +150,23 @@ class MemoryHandler:
             )
         
         self.choose_memory_tool_chain = (chose_memory_tool_prompt | self.llm | StrOutputParser())
+
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "You are assistant with ability to memorize conversations from the user. You should always answer user query based on the following context:\n<Documents>\n{context}\n</Documents>. \
+                    Be polite and helpful, make sure your respond sounds natural and remove unnecessary info such as search_memory or quote facts.",
+                ),
+                ("user", "{input}"),
+            ]
+        )
+
+        self.memory_retriever_chain = (
+            {"context": self.search_recall_memories, "input": RunnablePassthrough()}
+            | prompt
+            | llm 
+        )
 
     async def memory_routing(self, query:str,config: RunnableConfig ):
         self.user_id = get_user_id(config)
