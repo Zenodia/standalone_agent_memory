@@ -23,16 +23,19 @@ from openai import OpenAI
 from langchain_core.output_parsers import (
     JsonOutputParser,
 )
-
+import re
 from colorama import Fore
 
 def get_user_id(config: RunnableConfig) -> str:
-            user_id = config["configurable"].get("user_id")
-            if user_id is None:
-                print(Fore.RED + "user_id is None, setting memory to generic accessible memory with user_id=general", Fore.RESET)
-                user_id = "general"
-        
-            return user_id
+    user_id = config["configurable"].get("user_id")
+    if user_id is None:
+        print(Fore.RED + "user_id is None, setting memory to generic accessible memory with user_id=general", Fore.RESET)
+        user_id = "general"
+
+    return user_id
+
+
+
 
 class MemoryHandler:
     """
@@ -45,11 +48,13 @@ class MemoryHandler:
         self.llm = llm
         self.embed=embed
         self.recall_vector_store = InMemoryVectorStore(self.embed)
+        self.retriever = self.recall_vector_store.as_retriever()
         self.user_id = None
         self.config = None
         self.ids = None 
-        self.memory_tools=["save_memory", "update memory", "no_operation"]
+        self.memory_tools=["no_operation", "search_memory"]
         self.datetime = datetime.now().strftime("%Y-%m-%d")
+        self.reason_on=True
         ### create memory extraction chain
         memory_extract_prompt = """You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
         
@@ -95,6 +100,8 @@ class MemoryHandler:
         Here is the user input query : {input}" extract relevant facts obeying the above rules:
         BEGIN!
         """
+        if not self.reason_on :
+            memory_extract_prompt = "Reason Off\n"+ memory_extract_prompt
         extract_prompt_template = PromptTemplate(
         input_variables=["input"],
         template=memory_extract_prompt,
@@ -108,29 +115,34 @@ class MemoryHandler:
         Your task is to select appropriate memory tool that can be best used on the user_id:{user_id} , retrieved_memory:{retrieved_memory}, user input query :{input}
         
         Here are some examples for your reference :
-        example_1:
-        user_id: alex
-        user_input : "hi"
-        response: retrived_memory : [None]
-        memory_tool : no_operation
+        examples of user input:
+        "hi"
+        "what's up"
+        "so what can you do"
+        "what's today's weather?"
+        "what is your name"   
         
-        example_2:
-        user_id: alex
-        user_input: "hello, my name is Alex and I like to eat Italian food"
-        retrieved_memory:[None]
-        memory_tool: save_memory
+        memory_tool: no_operation
         
-        example_3:
-        user_id: alex
-        user_input: "oh and I also like to travel the world."
-        retrieved_memory:["name is Alex", "likes to eat Italian food"]
-        memory_tool: update_memory
+        examples of user input:
+        "hello, my name is Alex and I like to eat Italian food"
+        "hi, my name is Alex and my best friend is Johnny"
+        "I usually get up early and do exercise such as running or swimming in the morning"        
+        "Hi again, so I also like Chinese food, in fact I think I enjoy all kinds of crusine as long as it is not too spicy""
+        "You won't believe this, my best friend Jonny betrayed me, I no longer am friends with him anymore!"
+        "Also, I do eat a healthy breakfast after exercise"        
+        "do you remember what food do I like?"
+        "so can you recall who is my best friend?"
+        "think back and tell me this, what do I usually do in the morning?"      
+        
+        memory_tool : search_memory
         
         Remember to strictly following rule below :
             - do NOT attempt to explain how you made the choice
             - Return ONLY the name of the chosen memory_tool and nothing else.
         """
-        
+        if not self.reason_on :
+            mem_tool_routing = "Reason Off\n"+ mem_tool_routing
         chose_memory_tool_prompt = PromptTemplate(
             input_variables=["input"],
             template=mem_tool_routing,
@@ -151,6 +163,17 @@ class MemoryHandler:
                     output += content
         return output
     
+    def remove_think_tags(self,text: str):
+        pattern = r'(<think>)?.*?</think>\s*(.*)'
+
+        # Add re.DOTALL flag to make . match newlines
+        match = re.match(pattern, text, re.DOTALL)
+
+        if match:
+            return match.group(2)
+
+        return text
+
     async def query_to_memory_items(self, query: str):
         output=""
         async for event in self.mem_extract_chain.astream_events({"input":query, "datetime":self.datetime}):
@@ -159,15 +182,19 @@ class MemoryHandler:
                 content = event["data"]["chunk"].content
                 if content:
                     output += content
-                    print(Fore.CYAN + "** query_to_memory_items** streaming output > ", output, Fore.RESET)
+                    #print(Fore.CYAN + "** query_to_memory_items** streaming output > ", output, Fore.RESET)
         
         if isinstance(output,dict):
             return output
+            
         else:
+            output = output.replace("`","")     
+            if '<think>' in output:
+                output = self.remove_think_tags(output)
             try:
                 output_d = ast.literal_eval(output)
-            except e:
-                print(Fore.RED + "** query_to_memory_items** > error msg = " , output , Fore.RESET)
+            except Exception as e:
+                print(Fore.RED + "** query_to_memory_items** > error msg = " , e , Fore.RESET)
                 output_d = output
         return output_d
             
@@ -177,24 +204,29 @@ class MemoryHandler:
             memory : a string which describe the memory
             
         """                   
-        self.user_id = get_user_id(self.config)
+        if self.user_id:
+            pass
+        else:
+            self.user_id = get_user_id(self.config)
         n=len(memories)
         ids=[f'{uuid.uuid4()}' for _ in range(n)]
         docs = [Document( page_content=memory, id=str(unique_id), metadata={"user_id": self.user_id, "datetime":self.datetime})  for (unique_id, memory) in zip(ids,memories)]
         self.recall_vector_store.add_documents(docs)
         return memories, ids        
-    def update_memory(self, memories: List[str], config: RunnableConfig, ids : List[str]) -> str:
-        raise "not yet implemented update memory"
+    
     
     def search_recall_memories(self, query: str, config: RunnableConfig) -> List[str]:
         """Search for relevant memories."""
-        self.user_id = get_user_id(self.config)
+        if self.user_id:
+            pass
+        else:
+            self.user_id = get_user_id(self.config)
         
         def _filter_function(doc: Document) -> bool:
             return doc.metadata.get("user_id") == self.user_id
     
         documents = self.recall_vector_store.similarity_search(
-            query, k=3, filter=_filter_function
+            query, k=10, filter=_filter_function
         )
         return [document.page_content for document in documents]
 
