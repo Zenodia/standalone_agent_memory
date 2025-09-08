@@ -1,12 +1,27 @@
 from fastmcp import FastMCP
 from dotenv import load_dotenv
-
 from langchain_core.runnables import  RunnablePassthrough
 import os
-
 import nest_asyncio, asyncio
-from utils import memory_ops_chain
- 
+from utils import MemoryOps
+from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings, NVIDIARerank
+
+import os
+
+llm= ChatNVIDIA(model="meta/llama-3.1-405b-instruct")
+embed = NVIDIAEmbeddings(model="nvidia/nv-embedqa-mistral-7b-v2",truncate="NONE",)
+if os.getenv("stream") :
+    stream_flag = os.getenv("stream")
+    if stream_flag.lower()=="yes":
+        use_streaming = True
+    else:
+        use_streaming = False
+    print("using streaming : ", os.getenv("stream"))
+else:
+    use_streaming = False
+    print("no environment variable set")
+
+memory_ops=MemoryOps(llm,embed,use_streaming )
 mcp = FastMCP("MemoryMCPTools")
 
 @mcp.tool()     
@@ -22,7 +37,7 @@ async def memory_agent(query:str, user_id:str ) -> str :
     thread_id=0
     config = {"configurable": {"user_id": user_id, "thread_id": str(thread_id)}}
     output=""
-    output= await memory_ops_chain.ainvoke(input={"input":query, "config":config})
+    output= await memory_ops.memory_ops_chain.ainvoke(input={"input":query, "config":config})
     output= output.replace("search_memory","")
     if '{' in output:
         index=output.index('{')

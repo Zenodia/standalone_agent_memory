@@ -25,11 +25,17 @@ conda activate <a_friendly_environment_name>
 ### set environment variables 
 ```
 export NVIDIA_API_KEY="your NVIDIA API KEY"
+export stream="Yes"
+export llm_model="meta/llama-3.1-405b-instruct"
+export embed_model="nvidia/nv-embedqa-mistral-7b-v2"
 ```
 or
 create an environment file called .env 
 ```
 NVIDIA_API_KEY="your NVIDIA API KEY"
+stream="Yes"
+llm_model="meta/llama-3.1-405b-instruct"
+embed_model="nvidia/nv-embedqa-mistral-7b-v2"
 ```
 and then do 
 ```

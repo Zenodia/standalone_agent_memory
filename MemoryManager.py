@@ -36,13 +36,11 @@ def get_user_id(config: RunnableConfig) -> str:
     return user_id
 
 
-
-
 class MemoryHandler:
     """
     Implementation of the Memory Manager agent that is able to operate on a user query and manage the agentic memory state
     """  
-    def __init__(self, llm: ChatNVIDIA , embed: NVIDIAEmbeddings, use_streaming : bool ):
+    def __init__(self, llm: ChatNVIDIA , embed: NVIDIAEmbeddings, use_streaming : bool):
         """
             Initialize the Memory Handler to handle agentic memory operations
         """        
@@ -51,6 +49,7 @@ class MemoryHandler:
         self.recall_vector_store = InMemoryVectorStore(self.embed)
         self.retriever = self.recall_vector_store.as_retriever()
         self.use_streaming = use_streaming
+        print("using streaming in MemoryHandler class ?", self.use_streaming )
         self.user_id = None
         self.config = None
         self.ids = None 
