@@ -18,7 +18,7 @@ from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings, NVIDIARe
 from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
 from colorama import Fore
 import os
-
+from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
 from colorama import Fore
 import random
 from dotenv import load_dotenv
@@ -43,44 +43,46 @@ if os.environ.get("embed_model")==None:
 
 llm = ChatNVIDIA(model=llm_model)
 embed = NVIDIAEmbeddings(model=embed_model,truncate="NONE",)
+use_streaming = False
+global memory_manager
+memory_manager=MemoryHandler(llm,embed,use_streaming )
 ## loading memory class 
-memory_manager=MemoryHandler(llm,embed)
-
-
-thread_id=0
-   
 
 async def mem_routing_function(inputs):
     query=inputs["input"]
+    memory_manager.current_input=query
     config=inputs["config"]
-    output=await memory_manager.memory_routing(query, config)
-    inputs["mem_ops"]=output
-    print(Fore.GREEN+"chosen_mem_ops=", output,'\n', Fore.RESET)
-    return inputs
+    output=await memory_manager.memory_routing(query, config)    
+    return output
+
 
 async def create_memory_items(inputs):
     query=inputs["input"]
+    memory_manager.current_input=query
     memory_items = await memory_manager.query_to_memory_items(query=query)
-    inputs["memory_items"]=memory_items
-    return inputs
+    return memory_items
+
+runnable_parallel_1 = RunnableLambda(mem_routing_function)
+runnable_parallel_2 = RunnableLambda(create_memory_items)
+    
 
 async def execute_memory_operations(inputs):
-    mem_ops=inputs["mem_ops"]  
-    query=inputs["input"]
-    if "search_memory" in mem_ops.lower():
-        out= await memory_manager.memory_retriever_chain.ainvoke(query)
-        output=out.content
-        #print(Fore.CYAN+ "integrating response and recall memory items = \n ", output, Fore.RESET)
-        memory_items_d= await create_memory_items(inputs)
-        memory_items = memory_items_d["memory_items"]["facts"]
-        assert type(memory_items)==list 
-        #print(Fore.RED +">>>>>>>>>>>>>>>>>>>>> memory_items<<<<<<<<<<<<<<<<<<<<<< \n " , memory_items, Fore.RESET)
-        memories, ids= memory_manager.save_recall_memory(memory_items, memory_manager.config)        
-    else:        
-        user_id=inputs["config"]["configurable"]["user_id"]
-        memory_manager.user_id=user_id
-        out= await memory_manager.memory_retriever_chain.ainvoke(query)
-        output=out.content
-        #print(Fore.YELLOW + "no memory operation needed continue to respond ", output, Fore.RESET)    
+    mem_ops=inputs["mem_ops"]
+    query=memory_manager.current_input
+    memory_items_for_saving=inputs["mem_items"]["facts"]
+    if 'save_memory' in mem_ops.lower():        
+        memories, ids= memory_manager.save_recall_memory(memory_items_for_saving, memory_manager.config)
+        output = ids
+    elif "update_memory" in mem_ops.lower():
+        print("not implemented error")
+        memories, ids = memory_manager.save_recall_memory(memory_items_for_saving, memory_manager.config)
+        output = ids
+    elif "no operation":
+        output=llm.invoke(query).content 
     return output
+
+memory_ops_chain = RunnablePassthrough() | {  # this dict is coerced to a RunnableParallel
+    "mem_ops": runnable_parallel_1,
+    "mem_items": runnable_parallel_2
+    } | execute_memory_operations
 

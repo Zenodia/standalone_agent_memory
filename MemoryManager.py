@@ -42,7 +42,7 @@ class MemoryHandler:
     """
     Implementation of the Memory Manager agent that is able to operate on a user query and manage the agentic memory state
     """  
-    def __init__(self, llm: ChatNVIDIA , embed: NVIDIAEmbeddings ):
+    def __init__(self, llm: ChatNVIDIA , embed: NVIDIAEmbeddings, use_streaming : bool ):
         """
             Initialize the Memory Handler to handle agentic memory operations
         """        
@@ -50,12 +50,14 @@ class MemoryHandler:
         self.embed=embed
         self.recall_vector_store = InMemoryVectorStore(self.embed)
         self.retriever = self.recall_vector_store.as_retriever()
+        self.use_streaming = use_streaming
         self.user_id = None
         self.config = None
         self.ids = None 
         self.memory_tools=["no_operation", "search_memory"]
         self.datetime = datetime.now().strftime("%Y-%m-%d")
         self.reason_on=True
+        self.current_input = None
         ### create memory extraction chain
         memory_extract_prompt = """You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
         
@@ -173,13 +175,20 @@ class MemoryHandler:
         self.config=config # memory routing will always be called first, therefore self.config should also be set
         list_of_found_memories = self.search_recall_memories(query=query, config=config)
         output=""
-        async for event in self.choose_memory_tool_chain.astream_events({"user_id":self.user_id, "input":query, "memory_tools":self.memory_tools, "retrieved_memory":list_of_found_memories}):
-            kind = event["event"]
-            if kind == "on_chat_model_stream":
-                content = event["data"]["chunk"].content
-                if content:
-                    output += content
-        return output
+        inputs= {"user_id":self.user_id, "input":query, "memory_tools":self.memory_tools, "retrieved_memory":list_of_found_memories}
+        if self.use_streaming : 
+            async for event in self.choose_memory_tool_chain.astream_events(inputs):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        output += content
+            return output
+        else:
+            output = await self.choose_memory_tool_chain.ainvoke(inputs)
+            return output
+            
+            
     
     def remove_think_tags(self,text: str):
         pattern = r'(<think>)?.*?</think>\s*(.*)'
@@ -194,13 +203,20 @@ class MemoryHandler:
 
     async def query_to_memory_items(self, query: str):
         output=""
-        async for event in self.mem_extract_chain.astream_events({"input":query, "datetime":self.datetime}):
-            kind = event["event"]
-            if kind == "on_chat_model_stream":
-                content = event["data"]["chunk"].content
-                if content:
-                    output += content
-                    #print(Fore.CYAN + "** query_to_memory_items** streaming output > ", output, Fore.RESET)
+        inputs={"input":query, "datetime":self.datetime}
+        if self.use_streaming :
+            print("use streaming : True ")
+            async for event in self.mem_extract_chain.astream_events(inputs):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content:
+                        output += content
+                        #print(Fore.CYAN + "** query_to_memory_items** streaming output > ", output, Fore.RESET)
+                print(" streaming output > \n ", output )
+        else:
+            print("use ainvoke, NO streaming !")
+            output = await self.mem_extract_chain.ainvoke(inputs)           
         
         if isinstance(output,dict):
             return output
