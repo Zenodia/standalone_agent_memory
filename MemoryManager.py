@@ -39,7 +39,7 @@ def get_user_id(config: RunnableConfig) -> str:
 class MemoryHandler:
     """
     Implementation of the Memory Manager agent that is able to operate on a user query and manage the agentic memory state
-    """  
+    """
     def __init__(self, llm: ChatNVIDIA , embed: NVIDIAEmbeddings, use_streaming : bool):
         """
             Initialize the Memory Handler to handle agentic memory operations
@@ -172,7 +172,7 @@ class MemoryHandler:
     async def memory_routing(self, query:str,config: RunnableConfig ):
         self.user_id = get_user_id(config)
         self.config=config # memory routing will always be called first, therefore self.config should also be set
-        list_of_found_memories = self.search_recall_memories(query=query, config=config)
+        list_of_found_memories = self.search_recall_memories(query=query, config=self.config)
         output=""
         inputs= {"user_id":self.user_id, "input":query, "memory_tools":self.memory_tools, "retrieved_memory":list_of_found_memories}
         if self.use_streaming : 
@@ -217,19 +217,13 @@ class MemoryHandler:
             print("use ainvoke, NO streaming !")
             output = await self.mem_extract_chain.ainvoke(inputs)           
         
-        if isinstance(output,dict):
+        if isinstance(output,str):
             return output
-            
         else:
-            output = output.replace("`","")     
-            if '<think>' in output:
-                output = self.remove_think_tags(output)
-            try:
-                output_d = ast.literal_eval(output)
-            except Exception as e:
-                print(Fore.RED + "** query_to_memory_items** > error msg = " , e , Fore.RESET)
-                output_d = output
-        return output_d
+            if "facts" in output:
+                output_str= output["facts"]
+
+        return output
             
     def save_recall_memory(self,memories: List[str], config: RunnableConfig) -> str:
         """Save memory to vectorstore for later semantic retrieval.
@@ -242,22 +236,40 @@ class MemoryHandler:
         else:
             self.user_id = get_user_id(self.config)
         n=len(memories)
-        ids=[f'{uuid.uuid4()}' for _ in range(n)]
-        docs = [Document( page_content=memory, id=str(unique_id), metadata={"user_id": self.user_id, "datetime":self.datetime})  for (unique_id, memory) in zip(ids,memories)]
-        self.recall_vector_store.add_documents(docs)
-        return memories, ids        
+        if isinstance(memories, str):
+            unique_id=f'{uuid.uuid4()}'            
+            docs = [Document( page_content=memories, id=str(unique_id), metadata={"user_id": self.user_id, "datetime":self.datetime})]
+            self.recall_vector_store.add_documents(docs)
+        elif isinstance(memories, list):
+            ids=[f'{uuid.uuid4()}' for _ in range(n)]
+            docs = [Document( page_content=memory, id=str(unique_id), metadata={"user_id": self.user_id, "datetime":self.datetime})  for (unique_id, memory) in zip(ids,memories)]
+            self.recall_vector_store.add_documents(docs)
+        elif isinstance(memories, dict):
+            if "facts" in memories : 
+                memories= memories["facts"]
+                ids=[f'{uuid.uuid4()}' for _ in range(n)]
+                docs = [Document( page_content=memory, id=str(unique_id), metadata={"user_id": self.user_id, "datetime":self.datetime})  for (unique_id, memory) in zip(ids,memories)]
+                self.recall_vector_store.add_documents(docs)
+            else:
+                print(Fore.RED + "extracted memories from query is of type dict but the key facts is missing", memories,  " >> please write additional code to handle this type, docs= [] !")
+            docs=[]
+        else:
+            print(Fore.RED + "extracted memories from query is of type ", type(memories), memories,  "which is not a list , nor a string, please write additional code to handle this type, docs= [] !")
+            docs=[]
+        return docs        
     
     
     def search_recall_memories(self, query: str, config: RunnableConfig) -> List[str]:
+
         """Search for relevant memories."""
         if self.user_id:
             pass
         else:
             self.user_id = get_user_id(self.config)
-        
+        print(Fore.LIGHTGREEN_EX + f"searching memories for user_id={self.user_id} with query = {query}", Fore.RESET)
         def _filter_function(doc: Document) -> bool:
             return doc.metadata.get("user_id") == self.user_id
-    
+
         documents = self.recall_vector_store.similarity_search(
             query, k=10, filter=_filter_function
         )

@@ -12,6 +12,7 @@ from langchain_core.messages import get_buffer_string
 from langchain_core.tools import tool
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings
+from langchain_core.prompts import ChatPromptTemplate
 import uuid
 import re
 from colorama import Fore
@@ -68,42 +69,73 @@ class MemoryOps:
         self.use_streaming = use_streaming
         self.memory_manager=MemoryHandler(llm,embed,use_streaming )
         self.recall_vector_store = InMemoryVectorStore(self.embed)
-        self.retriever = self.recall_vector_store.as_retriever()
-        self.runnable_parallel_1 = RunnableLambda(self.mem_routing_function)
-        self.runnable_parallel_2 = RunnableLambda(self.create_memory_items)
+        self.retriever = self.recall_vector_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={"k": 5, "fetch_k": 10, "lambda_mult": 0.5},
+        )
+
+        self.runnable_parallel_1_routing_func = RunnableLambda(self.mem_routing_function)
+        self.runnable_parallel_2_create_memory = RunnableLambda(self.create_memory_items)
         
+        self.config=None
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "You are assistant with ability to memorize conversations from the user. You should always answer user query based on the following context:\n<Documents>\n{context}\n</Documents>. \
+                    Be polite and helpful.",
+                ),
+                ("user", "{input}"),
+            ]
+        )
+        
+        self.retriever_chain = (
+            {"context": self.recall_memory, "input": RunnablePassthrough()}
+            | prompt
+            | self.llm 
+        )
         self.memory_ops_chain = RunnablePassthrough() | {  # this dict is coerced to a RunnableParallel
-        "mem_ops": self.runnable_parallel_1,
-        "mem_items": self.runnable_parallel_2
+        "mem_ops": self.runnable_parallel_1_routing_func,
+        "mem_items": self.runnable_parallel_2_create_memory,        
         } | self.execute_memory_operations
 
     async def mem_routing_function(self, inputs):
         query=inputs["input"]
         self.memory_manager.current_input=query
-        config=inputs["config"]
-        output=await self.memory_manager.memory_routing(query, config)    
+        self.config=inputs["config"]
+        output=await self.memory_manager.memory_routing(query, self.config)    
+        
         return output
 
 
     async def create_memory_items(self, inputs):
         query=inputs["input"]
         self.memory_manager.current_input=query
+        self.config=inputs["config"]
         memory_items = await self.memory_manager.query_to_memory_items(query=query)
+        docs = self.memory_manager.save_recall_memory(memory_items, config=self.config)
+        print(Fore.CYAN + "creating memory items =", memory_items, Fore.RESET)
+        return docs
+    
+    async def recall_memory(self, inputs):
+        #print(Fore.MAGENTA + "recall memory inputs=\n", inputs, Fore.RESET)
+        query=self.memory_manager.current_input
+        self.memory_manager.current_input=query
+        memory_items = self.memory_manager.search_recall_memories(query, config=self.config)
+        print(Fore.MAGENTA + "recall memory items=\n", memory_items, Fore.RESET)
         return memory_items
 
     async def execute_memory_operations(self,inputs):
         mem_ops=inputs["mem_ops"]
+        print(Fore.BLUE +"executing memory operation = ", mem_ops, Fore.RESET)
         query=self.memory_manager.current_input
-        memory_items_for_saving=inputs["mem_items"]["facts"]
-        if 'save_memory' in mem_ops.lower():        
-            memories, ids= self.memory_manager.save_recall_memory(memory_items_for_saving, self.memory_manager.config)
-            output = ids
-        elif "update_memory" in mem_ops.lower():
-            print("not implemented error")
-            memories, ids = self.memory_manager.save_recall_memory(memory_items_for_saving, self.memory_manager.config)
-            output = ids
+        
+        if 'search_memory' in mem_ops.lower():        
+            output = await self.retriever_chain.ainvoke(query)
+            output = output.content
+            
         elif "no operation":
-            output=llm.invoke(query).content 
+            output=self.llm.invoke(query).content 
         return output
 
     
