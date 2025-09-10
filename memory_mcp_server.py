@@ -3,10 +3,15 @@ from dotenv import load_dotenv
 from langchain_core.runnables import  RunnablePassthrough
 import os
 import nest_asyncio, asyncio
+from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings, NVIDIARerank
 from utils import MemoryOps
 from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings, NVIDIARerank
-
 import os
+from colorama import Fore
+
+llm= ChatNVIDIA(model="meta/llama-3.1-405b-instruct")
+embed = NVIDIAEmbeddings(model="nvidia/nv-embedqa-mistral-7b-v2",truncate="NONE",)
+
 
 llm= ChatNVIDIA(model="meta/llama-3.1-405b-instruct")
 embed = NVIDIAEmbeddings(model="nvidia/nv-embedqa-mistral-7b-v2",truncate="NONE",)
@@ -33,17 +38,15 @@ async def memory_agent(query:str, user_id:str ) -> str :
     Returns:
         str: output response to the user 
     """
-    #thread_id=increment_by_1(thread_id)
+
     thread_id=0
+    user_id="babe"
     config = {"configurable": {"user_id": user_id, "thread_id": str(thread_id)}}
-    output=""
-    output= await memory_ops.memory_ops_chain.ainvoke(input={"input":query, "config":config})
+    query = "hi, my name is Babe, I am a pig and I can talk, my best friend is a chicken named Rob."
+    output = await memory_ops.memory_ops_chain.ainvoke(input={"input":query, "config":config})
+    
     output= output.replace("search_memory","")
-    if '{' in output:
-        index=output.index('{')
-        output=output[:index]    
-        print(output)
-                     
+    print(Fore.YELLOW + "output from custom mcp server = \n", output)                    
     return output
 """
 mcp.run(

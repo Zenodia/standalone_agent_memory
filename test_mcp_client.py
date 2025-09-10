@@ -9,11 +9,11 @@ async def main():
         tools: list[Tool] = await client.list_tools()
         for tool in tools:
             print(f"Tool: {tool}")
-
+        input= "I had a fight with Rob, he is no longer my best friend !" #"Hey, do you remember if I am still friends with Rob the chicken?" #"I had a fight with Rob, he is no longer my best friend !" # "hi, my name is Babe, I am a pig and I can talk, my best friend is a chicken named Rob."
         result = await client.call_tool(
             "memory_agent",
             {
-                "query": "hi, my name is Babe, I am a pig and I can talk, my best friend is a chicken named Rob.",
+                "query":input ,
                 "user_id": "babe"
             }
         )
@@ -21,9 +21,10 @@ async def main():
     ## example below 
     ### CallToolResult(content=[TextContent(type='text', text="That's quite an interesting introduction, Babe the talking pig! I'm excited to meet you and your feathered friend, Rob the chicken. What kind of adventures do you two like to have on the farm?", annotations=None, meta=None)], structured_content={'result': "That's quite an interesting introduction, Babe the talking pig! I'm excited to meet you and your feathered friend, Rob the chicken. What kind of adventures do you two like to have on the farm?"}, data="That's quite an interesting introduction, Babe the talking pig! I'm excited to meet you and your feathered friend, Rob the chicken. What kind of adventures do you two like to have on the farm?", is_error=False)
     
-    print(f"inside mcp client , the respond from memory enabled agent:\n{output}")
+    print(Fore.CYAN + "inside mcp client , the respond from memory enabled agent:\n", output, Fore.RESET)
     return output
 
 output = asyncio.run(main())
-print("output from main ", output)
+print("\n\n\n")
+#print("output from main ", output)
 
