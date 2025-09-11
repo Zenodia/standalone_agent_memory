@@ -3,18 +3,18 @@ from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
 from fastmcp.tools import Tool
 from colorama import Fore
-async def main():
+async def main(query, user_id):
     client = Client(transport=StreamableHttpTransport("http://127.0.0.1:4200/mcp"))  # use /mcp path
     async with client:
         tools: list[Tool] = await client.list_tools()
         for tool in tools:
             print(f"Tool: {tool}")
-        input= "I had a fight with Rob, he is no longer my best friend !" #"Hey, do you remember if I am still friends with Rob the chicken?" #"I had a fight with Rob, he is no longer my best friend !" # "hi, my name is Babe, I am a pig and I can talk, my best friend is a chicken named Rob."
+        input= "hi, my name is Babe, I am a pig and I can talk, my best friend is a chicken named Rob." #"I had a fight with Rob, he ruined my birthday, he is no longer my best friend !"
         result = await client.call_tool(
             "memory_agent",
             {
-                "query":input ,
-                "user_id": "babe"
+                "query": query ,
+                "user_id": user_id
             }
         )
     output=result.content[0].text # mcp response to text , which a list with TextContent in the list, access the text via attribute 
@@ -23,8 +23,9 @@ async def main():
     
     print(Fore.CYAN + "inside mcp client , the respond from memory enabled agent:\n", output, Fore.RESET)
     return output
-
-output = asyncio.run(main())
+query=input("Enter your query:\n") 
+user_id="user_1"
+output = asyncio.run(main(query, user_id))
 print("\n\n\n")
 #print("output from main ", output)
 

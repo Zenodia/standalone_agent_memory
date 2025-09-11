@@ -69,11 +69,13 @@ class MemoryOps:
         self.use_streaming = use_streaming
         self.memory_manager=MemoryHandler(llm,embed,use_streaming )
         self.recall_vector_store = InMemoryVectorStore(self.embed)
+        """
         self.retriever = self.recall_vector_store.as_retriever(
             search_type="mmr",
             search_kwargs={"k": 5, "fetch_k": 10, "lambda_mult": 0.5},
-        )
-
+        )"""
+        self.retriever = self.recall_vector_store.as_retriever(search_kwargs={"k":10})
+        
         self.runnable_parallel_1_routing_func = RunnableLambda(self.mem_routing_function)
         self.runnable_parallel_2_create_memory = RunnableLambda(self.create_memory_items)
         
@@ -82,7 +84,7 @@ class MemoryOps:
             [
                 (
                     "system",
-                    "You are assistant with ability to memorize conversations from the user. You should always answer user query based on the following context:\n<Documents>\n{context}\n</Documents>. \
+                    "You are assistant with ability to memorize conversations from the user. You should always answer user query based on the following context recalled from your memory:\n<Documents>\n{context}\n</Documents>. \
                     Be polite and helpful.",
                 ),
                 ("user", "{input}"),

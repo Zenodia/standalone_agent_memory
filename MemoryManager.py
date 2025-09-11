@@ -222,7 +222,7 @@ class MemoryHandler:
         else:
             if "facts" in output:
                 output_str= output["facts"]
-
+        print(Fore.LIGHTMAGENTA_EX + "memory items extracted from user query =\n", output, Fore.RESET)
         return output
             
     def save_recall_memory(self,memories: List[str], config: RunnableConfig) -> str:
