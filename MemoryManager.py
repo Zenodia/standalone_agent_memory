@@ -63,7 +63,7 @@ class MemoryHandler:
         Types of Information to Remember:
         
         1. Store Personal Preferences: Keep track of likes, dislikes, and specific preferences in various categories such as food, products, activities, and entertainment.
-        2. Maintain Important Personal Details: Remember significant personal information like names, relationships, and important dates.
+        2. Maintain Important Personal Details: Remember significant personal information like names, , jobs, organizations, relationships, and important dates.
         3. Track Plans and Intentions: Note upcoming events, trips, goals, and any plans the user has shared.
         4. Remember Activity and Service Preferences: Recall preferences for dining, travel, hobbies, and other services.
         5. Monitor Health and Wellness Preferences: Keep a record of dietary restrictions, fitness routines, and other wellness-related information.
@@ -116,17 +116,18 @@ class MemoryHandler:
         memory_tools :{memory_tools}
         Your task is to select appropriate memory tool that can be best used on the user_id:{user_id} , retrieved_memory:{retrieved_memory}, user input query :{input}
         
-        Here are some examples for your reference :
-        examples of user input:
+        Here are some examples for your reference : 
+        <EXAMPLES>
+        examples of user input result in chosen memory_tool: no_operation
         "hi"
         "what's up"
         "so what can you do"
         "what's today's weather?"
         "what is your name"   
         
-        memory_tool: no_operation
-        
-        examples of user input:
+        ------------------------------------        
+        examples of user input result in chosen memory_tool : search_memory
+        "Hello, my name is Sasha and get this, I am a sea monster."
         "hello, my name is Alex and I like to eat Italian food"
         "hi, my name is Alex and my best friend is Johnny"
         "I usually get up early and do exercise such as running or swimming in the morning"        
@@ -136,8 +137,7 @@ class MemoryHandler:
         "do you remember what food do I like?"
         "so can you recall who is my best friend?"
         "think back and tell me this, what do I usually do in the morning?"      
-        
-        memory_tool : search_memory
+        </EXAMPLES>
         
         Remember to strictly following rule below :
             - do NOT attempt to explain how you made the choice
