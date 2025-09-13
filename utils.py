@@ -34,6 +34,7 @@ else:
 
 if os.environ.get('llm_model') == None:
     llm_model=random.choice(choices)
+    print(Fore.LIGHTGREEN_EX +"using llm model =", llm_model )
     
 if os.environ.get("embed_model")==None:
     embed_model="nvidia/nv-embedqa-mistral-7b-v2"
@@ -51,6 +52,7 @@ else:
 
 
 llm = ChatNVIDIA(model=llm_model)
+
 embed = NVIDIAEmbeddings(model=embed_model,truncate="NONE",)
 
 
