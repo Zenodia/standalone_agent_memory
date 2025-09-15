@@ -13,8 +13,22 @@ from langchain_core.tools import tool
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage , BaseMessage, ToolMessage
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain.chains import create_history_aware_retriever
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 import uuid
 import re
+from operator import itemgetter
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.runnables import RunnableLambda
+
 from colorama import Fore
 from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnablePassthrough
 from MemoryManager import MemoryHandler
@@ -56,6 +70,38 @@ llm = ChatNVIDIA(model=llm_model)
 embed = NVIDIAEmbeddings(model=embed_model,truncate="NONE",)
 
 
+def check_turns(conv_hist):
+    n=len(conv_hist)
+    lastNhumanmsg=[i for (i, msg) in zip(range(n), conv_hist) if type(msg)==HumanMessage ]
+    return lastNhumanmsg
+
+def conv_items_to_list_of_strs(chat_history):
+    ls=[]
+    for item in chat_history:
+        if isinstance(item, HumanMessage):
+            ls.append("Human:"+item.content)
+        elif isinstance(item, AIMessage):
+            ls.append("AI:"+item.content)
+        elif isinstance(item, ToolMessage):
+            ls.append("Tool:"+item.content)
+        elif isinstance(item, SystemMessage):
+            ls.append("System:"+item.content)
+        else:
+            print("unknow item ", type(item), item)
+            pass
+    return ls
+def fetch_lastN_turns(conv_history , last_N_turns):
+    n=len(conv_history)
+    lastNhumanmsg=check_turns(conv_history)
+    idx=lastNhumanmsg[last_N_turns]
+    kept_last_N_turns = conv_history[idx:]
+    return kept_last_N_turns
+
+def print_me(inputs):
+            
+    print(Fore.LIGHTRED_EX + "Inputs: ", inputs,Fore.RESET)
+    
+    return inputs
 
 ## loading memory class 
 class MemoryOps:
@@ -69,6 +115,7 @@ class MemoryOps:
         self.llm = llm
         self.embed=embed
         self.use_streaming = use_streaming
+        self.number_of_turns = 3
         self.memory_manager=MemoryHandler(llm,embed,use_streaming )
         self.recall_vector_store = InMemoryVectorStore(self.embed)
         """
@@ -82,6 +129,7 @@ class MemoryOps:
         self.runnable_parallel_2_create_memory = RunnableLambda(self.create_memory_items)
         
         self.config=None
+        
         prompt = ChatPromptTemplate.from_messages(
             [
                 (
@@ -98,11 +146,83 @@ class MemoryOps:
             | prompt
             | self.llm 
         )
+        """
+        self.chat_history = ChatMessageHistory()
+        self.retriever_with_chat_history = RunnableWithMessageHistory(
+            self.retriever_chain,
+        lambda session_id: self.chat_history,            
+            history_messages_key="chat_history",
+        )
+        
+        memory_retrieve_prompt = 'You are an expert assistant who can keep track of the conversations with the user. \
+        you have acess to a memory and am able to recall/retrieve relevent memories relevant to the input user query. \
+        If you don't know the answer, just say that you don't know. \
+        Summarize to short sentences when you answer to user query.\
+        {context}'
+        qa_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", memory_retrieve_prompt),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+
+        question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
+        
+        #contextualize_q_system_prompt = 'Given a chat history and the latest user question \
+        #which might reference context in the chat history, formulate a standalone question \
+        #which can be understood without the chat history. Do NOT answer the question, \
+        #just reformulate it if needed and otherwise return it as is.'
+        contextualize_q_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", contextualize_q_system_prompt),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+        history_aware_retriever = create_history_aware_retriever(
+            self.llm, self.retriever, contextualize_q_prompt)
+        
+
+        self.chat_history_memory_chain =  create_retrieval_chain(history_aware_retriever, question_answer_chain)"""
+        
+        
+        MEM_PROMPT = """You are an expert assistant who can keep track of the conversations with the user. \
+        you have acess to a memory and am able to recall/retrieve relevent memories relevant to the input user query. \
+        If you don't know the answer, just say that you don't know. \
+        Summarize to short sentences when you answer to user query.\
+        {context}
+
+        <Conversation History> : 
+        latest chat_history ( up to 3 turns of user-assistant conversation ) : {chat_history}
+        conversation summary ( summarized > 3 turns of conversation history ): {chat_history_summarized}
+        </End ofConversation History> 
+        
+        current user input query: {input}
+        Assistant Response:"""
+
+        conv_hist_prompt = ChatPromptTemplate.from_template(MEM_PROMPT)
+
+        self.print_me = RunnableLambda(print_me)
+        self.conv_hist_aware_retriever_chain = (
+            {"chat_history": itemgetter("chat_history"), "chat_history_summarized": itemgetter("chat_history_summarized"), "context": (self.print_me | itemgetter('input') | self.print_me | self.retriever ), "input": itemgetter("input")}
+            | conv_hist_prompt
+            | self.llm
+            | StrOutputParser()
+        )
+        self.chat_history = []
+        
         self.memory_ops_chain = RunnablePassthrough() | {  # this dict is coerced to a RunnableParallel
         "mem_ops": self.runnable_parallel_1_routing_func,
         "mem_items": self.runnable_parallel_2_create_memory,        
         } | self.execute_memory_operations
 
+    async def last_N_conversation_turns(self, ):
+        num_turns_thus_far = check_turns(self.chat_history)
+        print("num_turns_thus_far", num_turns_thus_far)
+        if len(num_turns_thus_far) >= self.number_of_turns :
+            self.chat_history = fetch_lastN_turns(self.chat_history, -2)
+        
     async def mem_routing_function(self, inputs):
         query=inputs["input"]
         self.memory_manager.current_input=query
@@ -133,13 +253,25 @@ class MemoryOps:
         mem_ops=inputs["mem_ops"]
         print(Fore.BLUE +"executing memory operation = ", mem_ops, Fore.RESET)
         query=self.memory_manager.current_input
-        
+        self.chat_history.append(HumanMessage(content=query))
+        chat_history_ls=conv_items_to_list_of_strs(self.chat_history)
         if 'search_memory' in mem_ops.lower():        
-            output = await self.retriever_chain.ainvoke(query)
-            output = output.content
-            
+            output = await self.conv_hist_aware_retriever_chain.ainvoke({"chat_history":'\n'.join(chat_history_ls) , "chat_history_summarized": "", "input": query})
+            if hasattr(output,"content"):
+                output = output.content
+            elif isinstance(output,str):
+                output=output
+            else:
+                print(Fore.RED + "output from execute_memory_operation > search memory in mem_ops,lower()", type(output), output)
+        
         elif "no operation":
             output=self.llm.invoke(query).content 
+        else:
+            print("no a valid memory operation> ", mem_ops.lower())
+        self.chat_history.append(AIMessage(content=output))
+        print("-----"*10 , "\n\n")
+        print(Fore.LIGHTMAGENTA_EX+"self.chat_hisotyr.messages=\n", self.chat_history ,Fore.RESET)
+        print("\n\n","-----"*10 )
         return output
 
     

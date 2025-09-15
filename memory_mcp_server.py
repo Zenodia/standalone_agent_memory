@@ -9,9 +9,6 @@ from utils import MemoryOps
 import os
 from colorama import Fore
 
-llm= ChatNVIDIA(model="meta/llama-3.1-405b-instruct")
-embed = NVIDIAEmbeddings(model="nvidia/nv-embedqa-mistral-7b-v2",truncate="NONE",)
-
 
 llm= ChatNVIDIA(model="meta/llama-3.1-405b-instruct")
 embed = NVIDIAEmbeddings(model="nvidia/nv-embedqa-mistral-7b-v2",truncate="NONE",)
@@ -46,8 +43,14 @@ async def memory_agent(query:str, user_id:str ) -> str :
     output = await memory_ops.memory_ops_chain.ainvoke(input={"input":query, "config":config})
     print(Fore.YELLOW + "output from memory_ops>memory_ops_chain = \n", output)
     print("########## *10")
-    output = await memory_ops.retriever_chain.ainvoke(query)
-    output= output.content.replace("search_memory","")
+    #output = await memory_ops.memory_ops_chain.ainvoke(query)
+    if hasattr(output,"content"):
+        output = output.Content 
+    elif isinstance(output,str):
+        output = output 
+    else: 
+        print(Fore.RED + "output from memory_ops_chain is not string or has no content attribute, something is wrong !", type(output), output, Fore.RESET)
+    output= output.replace("search_memory","")
     print(Fore.LIGHTYELLOW_EX + "output from retriever_chain inside custom mcp server = \n", output)                    
     return output
 
@@ -71,6 +74,29 @@ async def restart_memory_agent(query:str, user_id:str ) -> str :
     print("########## *10")
     output = await memory_ops.retriever_chain.ainvoke(query)
     output= output.content.replace("search_memory","")
+    print(Fore.LIGHTYELLOW_EX + "output from retriever_chain inside custom mcp server = \n", output)                    
+    return output
+
+@mcp.tool()     
+async def fetch_memory_items(query:str, user_id:str ) -> list[str] :
+    """ An Agent with memory enabled, can memorize the past conversation and respond accordingly.
+    Args:
+        query (str): The input user query
+        user_id (str): the current user's id
+    Returns:
+        str: output response to the user 
+    """
+
+    thread_id=0
+    user_id=user_id
+    
+    config = {"configurable": {"user_id": user_id, "thread_id": str(thread_id)}}
+    out = await memory_ops.memory_ops_chain.ainvoke(input={"input":query, "config":config})
+    #query = "hi, my name is Babe, I am a pig and I can talk, my best friend is a chicken named Rob."
+    output = memory_ops.memory_manager.search_recall_memories(query=query, config=config)
+    print(Fore.YELLOW + "output from memory_ops>memory_ops_chain = \n", output)
+    print("########## *10")
+    
     print(Fore.LIGHTYELLOW_EX + "output from retriever_chain inside custom mcp server = \n", output)                    
     return output
 """
