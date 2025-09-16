@@ -72,8 +72,8 @@ embed = NVIDIAEmbeddings(model=embed_model,truncate="NONE",)
 
 def check_turns(conv_hist):
     n=len(conv_hist)
-    lastNhumanmsg=[i for (i, msg) in zip(range(n), conv_hist) if type(msg)==HumanMessage ]
-    return lastNhumanmsg
+    lastNhumanmsg=[msg for msg in conv_hist if type(msg)==HumanMessage ]
+    return len(lastNhumanmsg)+1
 
 def conv_items_to_list_of_strs(chat_history):
     ls=[]
@@ -102,6 +102,8 @@ def print_me(inputs):
     print(Fore.LIGHTRED_EX + "Inputs: ", inputs,Fore.RESET)
     
     return inputs
+
+
 
 ## loading memory class 
 class MemoryOps:
@@ -200,7 +202,8 @@ class MemoryOps:
         
         current user input query: {input}
         Assistant Response:"""
-
+        self.summary=""
+        self.number_of_turns=3
         conv_hist_prompt = ChatPromptTemplate.from_template(MEM_PROMPT)
 
         self.print_me = RunnableLambda(print_me)
@@ -216,7 +219,40 @@ class MemoryOps:
         "mem_ops": self.runnable_parallel_1_routing_func,
         "mem_items": self.runnable_parallel_2_create_memory,        
         } | self.execute_memory_operations
+    def summarize(self):
+        conv_summary_prompt = """You are an expert in summarizing conversation between a user and a bot.
+        Your task is to progressively summarize the lines of conversation provided, adding onto the previous summary returning a new summary.
 
+        <EXAMPLE>
+        Current summary:
+        The human asks what the AI thinks of artificial intelligence. The AI thinks artificial intelligence is a force for good.
+        New lines of conversation:
+        Human: Why do you think artificial intelligence is a force for good?
+        AI: Because artificial intelligence will help humans reach their full potential.
+        New summary:\nThe human asks what the AI thinks of artificial intelligence. The AI thinks artificial intelligence is a force for good because it will help humans reach their full potential.
+        </END OF EXAMPLE>
+
+        Current summary:
+        {summary}
+        New lines of conversation:{conversations}
+        - return ONLY the New Summary and nothing else.
+        New summary:"""
+        conv_summary_prompt_template = PromptTemplate(        
+        template=conv_summary_prompt,
+        )
+        chat_history_ls=conv_items_to_list_of_strs(self.chat_history)
+        summary_chain = (conv_summary_prompt_template | llm | StrOutputParser())
+        output= summary_chain.invoke({"summary":self.summary, "conversations":'\n'.join(chat_history_ls)})
+        if hasattr(output,"content"):
+            output=output.content
+        elif isinstance(output,str):
+            output=output
+        else:
+            print(Fore.RED + "output from summarize() ", type(output), output)
+        self.summary=output
+        #reset chat_history if more than 3 turns
+        self.chat_history=[]
+        
     async def last_N_conversation_turns(self, ):
         num_turns_thus_far = check_turns(self.chat_history)
         print("num_turns_thus_far", num_turns_thus_far)
@@ -251,9 +287,16 @@ class MemoryOps:
 
     async def execute_memory_operations(self,inputs):
         mem_ops=inputs["mem_ops"]
-        print(Fore.BLUE +"executing memory operation = ", mem_ops, Fore.RESET)
         query=self.memory_manager.current_input
-        self.chat_history.append(HumanMessage(content=query))
+        print(Fore.BLUE +"executing memory operation = ", mem_ops, Fore.RESET)
+        turns=check_turns(self.chat_history)
+        print(Fore.LIGHTYELLOW_EX + "current turns of conversation =", turns, Fore.RESET)
+        if turns > self.number_of_turns:
+            self.summarize()
+            self.chat_history.append(HumanMessage(content="previous conversation summary:\n"+self.summary + "current user query:\n"+ query))
+        else:
+            
+            self.chat_history.append(HumanMessage(content=query))
         chat_history_ls=conv_items_to_list_of_strs(self.chat_history)
         if 'search_memory' in mem_ops.lower():        
             output = await self.conv_hist_aware_retriever_chain.ainvoke({"chat_history":'\n'.join(chat_history_ls) , "chat_history_summarized": "", "input": query})
@@ -269,9 +312,9 @@ class MemoryOps:
         else:
             print("no a valid memory operation> ", mem_ops.lower())
         self.chat_history.append(AIMessage(content=output))
-        print("-----"*10 , "\n\n")
-        print(Fore.LIGHTMAGENTA_EX+"self.chat_hisotyr.messages=\n", self.chat_history ,Fore.RESET)
-        print("\n\n","-----"*10 )
+        print("=========="*10 , "\n\n")
+        print(Fore.LIGHTRED_EX+"self.chat_hisotyr.messages=\n", len(self.chat_history),  self.chat_history ,Fore.RESET)
+        print("\n\n","=========="*10 )
         return output
 
     
