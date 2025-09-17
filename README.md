@@ -1,9 +1,10 @@
 # standalone_agent_memory
-plug-and-playable standalone agentic memory with minimal code 
+Plug-and-playable standalone agentic memory with minimal code 
 
 ## features 
 this is a minimalisitc code which support extraction of custom memory from user conversation with the following features.
 
+- keep track of the user-assistant conversations in multi-turns
 - giving a conversational memory, this standalone agentic memory module will automatically create memory items and archiv into a vectorstore which is InMemoryVectorStore from langchain 
 - the memory item creation is using a strong instruction following LLM from build.nvidia.com , tested these 2 "nvidia/llama-3.1-nemotron-51b-instruct","meta/llama-3.1-405b-instruct"
 - a runnable chain which operates on the user conversation automatically
