@@ -13,13 +13,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_openai.embeddings import OpenAIEmbeddings
-
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 import uuid
-from openai import OpenAI
 from langchain_core.output_parsers import (
     JsonOutputParser,
 )

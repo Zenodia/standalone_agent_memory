@@ -26,7 +26,6 @@ from operator import itemgetter
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.runnables import RunnableLambda
 
 from colorama import Fore
@@ -208,7 +207,7 @@ class MemoryOps:
 
         self.print_me = RunnableLambda(print_me)
         self.conv_hist_aware_retriever_chain = (
-            {"chat_history": itemgetter("chat_history"), "chat_history_summarized": itemgetter("chat_history_summarized"), "context": (self.print_me | itemgetter('input') | self.print_me | self.retriever ), "input": itemgetter("input")}
+            {"chat_history": itemgetter("chat_history"), "chat_history_summarized": itemgetter("chat_history_summarized"), "context": (self.print_me | itemgetter('input') | self.print_me | self.retriever_chain ), "input": itemgetter("input")}
             | conv_hist_prompt
             | self.llm
             | StrOutputParser()

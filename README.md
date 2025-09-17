@@ -4,15 +4,19 @@ Plug-and-playable standalone agentic memory with minimal code
 ## features 
 this is a minimalisitc code which support extraction of custom memory from user conversation with the following features.
 
+- filter per user by user_id as identification , note we can also extend the filtering to other supplied info
+- automatic summary when conversation turns exceed 3 turns in multi-turns conversations
 - keep track of the user-assistant conversations in multi-turns
 - giving a conversational memory, this standalone agentic memory module will automatically create memory items and archiv into a vectorstore which is InMemoryVectorStore from langchain 
 - the memory item creation is using a strong instruction following LLM from build.nvidia.com , tested these 2 "nvidia/llama-3.1-nemotron-51b-instruct","meta/llama-3.1-405b-instruct"
 - a runnable chain which operates on the user conversation automatically
 - a custom mcp server which allow easy integration for any agentic framework 
 - a custom mcp client script to test the connection and serve as sample snippet code for easier integration 
-
+- incorporate streaming possbility ( not yet supported in the custom MCP server & client)
 
 ## environment build
+make sure you have Python 3.12 , I am using python 3.12.11
+#### using conda environment with Anaconda-Navigator
 find appropriate python packages from the env.yml file , if you are using anaconda , you can simple create a new environment with the following command 
 in your anaconda terminal , create the environment using the below command
 ``` 
@@ -23,6 +27,12 @@ then activate the environment using the below command
 ```
 conda activate <a_friendly_environment_name>
 ```
+#### alternatively , you can do pip install -r requirements.txt 
+```
+pip install -r requirements.txt
+```
+
+
 ### set environment variables 
 ```
 export NVIDIA_API_KEY="your NVIDIA API KEY"
