@@ -8,3 +8,4 @@ langgraph
 langgraph-checkpoint 
 fastmcp==2.11.3  
 openapi-pydantic==0.5.1
+colorama

@@ -5,7 +5,7 @@ from fastmcp.tools import Tool
 from colorama import Fore
 import ast 
 async def main(query, user_id):
-    client = Client(transport=StreamableHttpTransport("http://127.0.0.1:4200/mcp"))  # use /mcp path
+    client = Client(transport=StreamableHttpTransport("http://127.0.0.1:4327/mcp"))  # use /mcp path
     async with client:
         tools: list[Tool] = await client.list_tools()
         for tool in tools:

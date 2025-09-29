@@ -35,6 +35,7 @@ from colorama import Fore
 import random
 from dotenv import load_dotenv
 import nest_asyncio, asyncio
+load_dotenv()
 nest_asyncio.apply()
 
 

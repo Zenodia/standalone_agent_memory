@@ -5,10 +5,9 @@ import os
 import nest_asyncio, asyncio
 from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings, NVIDIARerank
 from utils import MemoryOps
-
 import os
 from colorama import Fore
-
+load_dotenv()
 
 llm= ChatNVIDIA(model="meta/llama-3.1-405b-instruct")
 embed = NVIDIAEmbeddings(model="nvidia/nv-embedqa-mistral-7b-v2",truncate="NONE",)
@@ -110,12 +109,12 @@ mcp.run(
 if __name__ == "__main__":
     import asyncio
     ## windows specific set up to avoid "ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host"
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    #asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     asyncio.run(mcp.run(
         transport="streamable-http",
         host="127.0.0.1",
-        port=4200,
+        port=4327,
         path='/mcp',
         log_level="debug",
     ))
