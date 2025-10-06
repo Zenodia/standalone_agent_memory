@@ -37,7 +37,7 @@ async def main(query, user_id):
     print(Fore.CYAN + "inside mcp client , the respond from memory enabled agent:\n", output, Fore.RESET)
     return output
 query=input("Enter your query:\n") 
-user_id="user_1"
+user_id="babe"
 output = asyncio.run(main(query, user_id))
 print("\n\n\n")
 print("output from main ", type(output), output)

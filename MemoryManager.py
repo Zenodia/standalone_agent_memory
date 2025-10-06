@@ -268,7 +268,7 @@ class MemoryHandler:
             return doc.metadata.get("user_id") == self.user_id
 
         documents = self.recall_vector_store.similarity_search(
-            query, k=10, filter=_filter_function
+            query, k=20, filter=_filter_function
         )
         return [document.page_content for document in documents]
 

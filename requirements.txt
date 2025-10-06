@@ -9,3 +9,4 @@ langgraph-checkpoint
 fastmcp==2.11.3  
 openapi-pydantic==0.5.1
 colorama
+nvidia-haystack==0.1.2
