@@ -195,10 +195,10 @@ class MemoryOps:
         Summarize to short sentences when you answer to user query.\
         {context}
 
-        <Conversation History> : 
+        <ChatHistory> : 
         latest chat_history ( up to 3 turns of user-assistant conversation ) : {chat_history}
         conversation summary ( summarized > 3 turns of conversation history ): {chat_history_summarized}
-        </End ofConversation History> 
+        </ChatHistory> 
         
         current user input query: {input}
         Assistant Response:"""
@@ -230,7 +230,7 @@ class MemoryOps:
         Human: Why do you think artificial intelligence is a force for good?
         AI: Because artificial intelligence will help humans reach their full potential.
         New summary:\nThe human asks what the AI thinks of artificial intelligence. The AI thinks artificial intelligence is a force for good because it will help humans reach their full potential.
-        </END OF EXAMPLE>
+        </EXAMPLE>
 
         Current summary:
         {summary}

@@ -67,6 +67,7 @@ class MemoryHandler:
         6. Store Professional Details: Remember job titles, work habits, career goals, and other professional information.
         7. Miscellaneous Information Management: Keep track of favorite books, movies, brands, and other miscellaneous details that the user shares.
         
+        <EXAMPLES>
         Here are some few shot examples: 
         
         Input: There are branches in trees.
@@ -83,9 +84,10 @@ class MemoryHandler:
         
         Input: Me favourite movies are Inception and Interstellar.
         Output: {{"facts" : ["Favourite movies are Inception and Interstellar"]}}
-        
+        </EXAMPLES>
         Return the facts and preferences in a json format as shown above.
         
+        <RULES>
         Remember the following rules :
         - Today's date is {datetime}.
         - Do not return anything from the custom few shot example prompts provided above.
@@ -95,7 +97,7 @@ class MemoryHandler:
         - Create the facts based on the user and assistant messages only. Do not pick anything from the system messages.
         - Make sure to return the response in the format mentioned in the examples. The response should be in json with a key as "facts" and corresponding value will be a list of strings.
         - Return ONLY the JSON format string and nothing else
-        
+        </RULES>
         Here is the user input query : {input}" extract relevant facts obeying the above rules:
         BEGIN!
         """
