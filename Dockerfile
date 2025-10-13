@@ -27,5 +27,6 @@ RUN pip install -r requirements.txt
 EXPOSE 8888 9999 8000 7860 7861 60808
 
 # Start JupyterLab when the container runs
-CMD ["sh", "-c", "tail -f /dev/null"]
+#CMD ["sh", "-c", "tail -f /dev/null"]
+CMD ["python","memory_mcp_server"]
 #CMD ["jupyter", "lab", "--allow-root", "--ip=0.0.0.0","--NotebookApp.token=''", "--port=8888"]
