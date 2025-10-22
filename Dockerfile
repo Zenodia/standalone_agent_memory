@@ -8,7 +8,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Set working directory
 WORKDIR /workspace
-
+COPY . /workspace
 RUN apt update -y 
 #RUN apt install ffmpeg -y
 
