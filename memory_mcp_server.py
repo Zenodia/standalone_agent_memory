@@ -2,6 +2,7 @@ from fastmcp import FastMCP
 from dotenv import load_dotenv
 from langchain_core.runnables import  RunnablePassthrough
 import os
+import re
 import nest_asyncio, asyncio
 from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings, NVIDIARerank
 from utils import MemoryOps
@@ -9,8 +10,14 @@ import os
 from colorama import Fore
 load_dotenv()
 
-llm= ChatNVIDIA(model="meta/llama-3.1-405b-instruct")
-embed = NVIDIAEmbeddings(model="nvidia/nv-embedqa-mistral-7b-v2",truncate="NONE",)
+def strip_think_tags(text: str) -> str:
+    return re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+#  model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
+
+llm= ChatNVIDIA(model="nvidia/llama-3.3-nemotron-super-49b-v1.5")
+#    model="nvidia/llama-3.2-nemoretriever-300m-embed-v1",
+
+embed = NVIDIAEmbeddings(model="nvidia/llama-3.2-nemoretriever-300m-embed-v1",truncate="NONE",)
 if os.getenv("stream") :
     stream_flag = os.getenv("stream")
     if stream_flag.lower()=="yes":
@@ -49,11 +56,11 @@ async def memory_agent(query:str, user_id:str ) -> str :
         output = output 
     else: 
         print(Fore.RED + "output from memory_ops_chain is not string or has no content attribute, something is wrong !", type(output), output, Fore.RESET)
-    output= output.replace("search_memory","")
-    print(Fore.LIGHTYELLOW_EX + "output from retriever_chain inside custom mcp server = \n", output)                    
+    output = strip_think_tags(output).replace("search_memory", "")
+    print(Fore.LIGHTYELLOW_EX + "output from retriever_chain inside custom mcp server = \n", output)
     return output
 
-@mcp.tool()     
+@mcp.tool()
 async def restart_memory_agent(query:str, user_id:str ) -> str :
     """ An Agent with memory enabled, can memorize the past conversation and respond accordingly.
     Args:
@@ -113,8 +120,8 @@ if __name__ == "__main__":
 
     asyncio.run(mcp.run(
         transport="streamable-http",
-        host="127.0.0.1",
-        port=4327,
+        host="0.0.0.0",
+        port=8999,
         path='/mcp',
         log_level="debug",
     ))
