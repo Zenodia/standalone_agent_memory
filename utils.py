@@ -39,7 +39,7 @@ load_dotenv()
 nest_asyncio.apply()
 
 
-choices=["nvidia/llama-3.1-nemotron-51b-instruct","meta/llama-3.1-405b-instruct"]
+choices=["nvidia/llama-3.3-nemotron-super-49b-v1.5"]
 
 if os.environ["NVIDIA_API_KEY"]:
    print("existing NVIDIA_API_KEY in the environment ", os.environ["NVIDIA_API_KEY"][:7])
