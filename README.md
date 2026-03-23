@@ -53,15 +53,96 @@ and then do
 source .env
 ```
 
-## steps to run this minimal example
+---
 
-### step 1 : run the mcp server, due to the modification we will not be using fastmcp and directly spin up the server as 
-    
-note: I am using vscode on windows with anaconda environment build described above
-```python 
-python .\memory_mcp_server.py
+## ALFWorld Game (second implementation)
+
+A text-based household task game where a server-side LLM decides every action.
+See `alfworld-game/` for all related files.
+
+### Install ALFWorld
+
+ALFWorld is installed automatically via `requirements.txt` (text-only, no visual/THOR deps):
+
+```bash
+pip install alfworld==0.4.2
 ```
-you should see something similar to the below 
+
+Or explicitly if you only need this part:
+
+```bash
+pip install alfworld         # latest
+pip install alfworld==0.4.2  # pinned version used here
+```
+
+### Download the game data
+
+Run the one-time download command after installation (downloads ~1 GB to `~/.cache/alfworld`):
+
+```bash
+alfworld-download
+```
+
+Then set the environment variable so ALFWorld can find the data:
+
+```bash
+export ALFWORLD_DATA=~/.cache/alfworld
+```
+
+Add it to your `.env` file to make it permanent:
+
+```
+ALFWORLD_DATA=~/.cache/alfworld
+```
+
+### Run the ALFWorld MCP server
+
+```bash
+cd alfworld-game
+python alfworld_env_mcp_server.py
+```
+
+The server starts on `0.0.0.0:9000/mcp` and exposes tools:
+`reset_env`, `step_env`, `get_current_state`, `get_admissible_commands`, `llm_choose_action`
+
+### Play via the host client
+
+```bash
+cd alfworld-game
+python host_client.py          # resume (or auto-reset if no game is active)
+```
+
+Pass `reset=True` in the script to start a fresh game.
+Game history is written to `alfworld-game/game_history.md` automatically.
+
+### Play directly without MCP
+
+```bash
+cd alfworld-game
+python alfworld_env_query.py   # runs the LLM-driven loop directly, no server needed
+```
+
+---
+
+## steps to run — pick ONE implementation
+
+> **Each implementation has its own MCP server. Run only one at a time** — they both listen on port `9000` by default.
+
+---
+
+### Option A — Memory Agent (`memory-agent/`)
+
+#### step 1 : start the Memory Agent MCP server
+
+```bash
+# Linux / macOS
+python memory-agent/memory_mcp_server.py
+
+# Windows
+python .\memory-agent\memory_mcp_server.py
+```
+
+You should see something similar to the below:
 
 ```
 existing NVIDIA_API_KEY in the environment  nvapi-K
@@ -75,42 +156,75 @@ existing NVIDIA_API_KEY in the environment  nvapi-K
 │     _ __ ___ / __/ / /_/ (__  ) /_/ /  / / /___/ ____/  /  __/_/ /_/ /     │
 │    _ __ ___ /_/    \__,_/____/\__/_/  /_/\____/_/      /_____(_)____/      │
 │                                                                            │
-│                                                                            │
-│                                                                            │
 │    🖥️  Server name:     MemoryMCPTools                                      │
 │    📦 Transport:       Streamable-HTTP                                     │
-│    🔗 Server URL:      http://127.0.0.1:4200/mcp                           │
-│                                                                            │
-│    📚 Docs:            https://gofastmcp.com                               │
-│    🚀 Deploy:          https://fastmcp.cloud                               │
-│                                                                            │
-│    🏎️  FastMCP version: 2.11.3                                              │
-│    🤝 MCP version:     1.13.1                                              │
+│    🔗 Server URL:      http://0.0.0.0:9000/mcp                             │
 │                                                                            │
 ╰────────────────────────────────────────────────────────────────────────────╯
-[09/08/25 16:06:22] INFO     Starting MCP server 'MemoryMCPTools' with transport 'streamable-http' on        server.py:1522                                                                                       
-                             http://127.0.0.1:4200/mcp                                                                                                                                                            
-C:\Users\zcharpy\AppData\Local\anaconda3\envs\py312\Lib\site-packages\websockets\legacy\__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
-  warnings.warn(  # deprecated in 14.0 - 2024-11-09
-C:\Users\zcharpy\AppData\Local\anaconda3\envs\py312\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py:16: DeprecationWarning: websockets.server.WebSocketServerProtocol is deprecated
-  from websockets.server import WebSocketServerProtocol
-INFO:     Started server process [37080]
-INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:4200 (Press CTRL+C to quit)
+INFO:     Uvicorn running on http://0.0.0.0:9000 (Press CTRL+C to quit)
 ```
 
-### step 2 : test the client with a pre-made query
+#### step 2 : run the host client
 
-```python
-python .\test_mcp_client.py
+```bash
+# Linux / macOS
+python memory-agent/host_client.py
+
+# Windows
+python .\memory-agent\host_client.py
 ```
 
-you should see something similar to the below 
+You should see something similar to the below:
+
 ```
-Tool: name='memory_agent' title=None description="An Agent with memory enabled, can memorize the past conversation and respond accordingly.\nArgs:\n    query (str): The input user query\n    user_id (str): the current user's id\nReturns:\n    str: output response to the user " inputSchema={'properties': {'query': {'title': 'Query', 'type': 'string'}, 'user_id': {'title': 'User Id', 'type': 'string'}}, 'required': ['query', 'user_id'], 'type': 'object'} outputSchema={'properties': {'result': {'title': 'Result', 'type': 'string'}}, 'required': ['result'], 'title': '_WrappedResult', 'type': 'object', 'x-fastmcp-wrap-result': True} annotations=None meta={'_fastmcp': {'tags': []}}
+Tool: name='memory_agent' ...
 Respond from memory enabled agent:
-That's quite an interesting introduction, Babe the talking pig! I'm excited to meet you and your feathered friend, Rob the chicken. What kind of adventures do you two like to have on the farm?
+That's quite an interesting introduction, Babe the talking pig! I'm excited to meet
+you and your feathered friend, Rob the chicken. What kind of adventures do you two
+like to have on the farm?
+```
+
+---
+
+### Option B — ALFWorld Game (`alfworld-game/`)
+
+> **Prerequisites:** complete the [ALFWorld install + data download](#alfworld-game-second-implementation) steps above first.
+
+#### step 1 : start the ALFWorld MCP server
+
+```bash
+# Linux / macOS
+python alfworld-game/alfworld_env_mcp_server.py
+
+# Windows
+python .\alfworld-game\alfworld_env_mcp_server.py
+```
+
+The server scans and loads the game files on startup (may take ~10 seconds):
+
+```
+[alfworld_env_mcp_server] Environment initialised.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9000 (Press CTRL+C to quit)
+```
+
+#### step 2 : run the host client
+
+```bash
+# Linux / macOS
+python alfworld-game/host_client.py
+
+# Windows
+python .\alfworld-game\host_client.py
+```
+
+The LLM will start choosing actions and the game log will be written to `alfworld-game/game_history.md`.
+
+To play directly without the MCP server (single-process, no client needed):
+
+```bash
+python alfworld-game/alfworld_env_query.py
 ```
 
 

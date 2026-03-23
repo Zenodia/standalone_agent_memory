@@ -17,6 +17,38 @@ Sandbox
                       └─ NVIDIA NIM API (nvidia/llama-3.3-nemotron-super-49b-v1.5)
 ```
 
+## Step 0 - openshell set up 
+### 1. export INFERENCE_API_KEY="sk-xxxx" 
+
+### 2. start the openshell gateway 
+```
+openshell gateway start
+```
+
+### 3. set up provider using NVIDIA's inference-api.nvidia.com endpoints
+```
+openshell provider create \
+  --type nvidia \
+  --name nvidia \
+  --credential INFERENCE_API_KEY \
+  --config NVIDIA_BASE_URL=https://inference-api.nvidia.com/v1
+```
+### 4. set up openshell inference , inherit from 3.
+```
+  openshell inference set \
+    --provider nvidia \
+    --model aws/anthropic/bedrock-claude-opus-4-6
+```
+Note: verying with ```openshell inference get```
+
+### 5. creating the sandbox using openclaw as base image 
+```
+openshell sandbox create --from /home/ubuntu/OpenShell-Community/sandboxes/openclaw --forward 18789
+```
+### 6. using the custom sandbox_policy.yaml 
+```
+openshell policy set seasoned-pointer --policy /home/ubuntu/standalone_agent_memory/sandbox_policy.yaml --wait
+```
 ---
 
 ## Step 1 — Sandbox Policy
