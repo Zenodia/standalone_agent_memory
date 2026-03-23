@@ -6,7 +6,8 @@ from colorama import Fore, init
 
 init(autoreset=True)
 
-MCP_SERVER_URL = "http://0.0.0.0:8999/mcp"
+#MCP_SERVER_URL = "http://host.openshell.internal:9000/mcp"
+MCP_SERVER_URL = "http://localhost:9000/mcp"
 
 def stream_print(text: str):
     """Print text word-by-word to simulate streaming output."""

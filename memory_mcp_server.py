@@ -121,7 +121,7 @@ if __name__ == "__main__":
     asyncio.run(mcp.run(
         transport="streamable-http",
         host="0.0.0.0",
-        port=8999,
+        port=9000,
         path='/mcp',
         log_level="debug",
     ))

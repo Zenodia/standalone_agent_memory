@@ -107,7 +107,13 @@ class MemoryHandler:
         input_variables=["input"],
         template=memory_extract_prompt,
         )
-        self.mem_extract_chain = (extract_prompt_template | self.llm | JsonOutputParser())
+        self.mem_extract_chain = (
+            extract_prompt_template
+            | self.llm
+            | StrOutputParser()
+            | RunnableLambda(lambda text: re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip())
+            | JsonOutputParser()
+        )
         
         ### create memory routing chain 
         
